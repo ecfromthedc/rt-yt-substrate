@@ -1,0 +1,368 @@
+# RT YouTube Long-Form Workflow Map
+# Single source of truth for the long-form pipeline.
+# HTML renderer (docs/workflow-map.html) + Obsidian Canvas mirror render from this file.
+#
+# EDIT FLOW (any agent — Glitch's, Jay's, Smaths', Eric's):
+#   1. Edit this file on a branch
+#   2. Open a PR
+#   3. CI lints schema + Mermaid build
+#   4. Merge → HTML + Canvas auto-regen
+#
+# Schema version. Bump on breaking changes.
+version: 1
+
+# Operators are humans running channels. Each owns gate decisions on their own channels.
+operators:
+  - id: glitch
+    display: Glitch
+    color: "#7C5CFF"
+    slack_user: U0B5X0TN2G4
+  - id: jay
+    display: Jay
+    color: "#00C6A2"
+    slack_user: U0B2CBM8Z6E
+
+# Agent roles are the AI lanes. Multiple agents can fill the same role.
+agent_roles:
+  - id: strategist
+    display: Strategist
+    color: "#FFB020"
+    description: Niche validation, topic selection, format pattern recognition.
+  - id: researcher
+    display: Researcher
+    color: "#5AC8FA"
+    description: Source ingestion (NTSB, AAIB, archives), fact-check, timeline reconstruction.
+  - id: script_producer
+    display: Script Producer
+    color: "#FF7A59"
+    description: Cold-open through close, evidence-first cadence.
+  - id: editor
+    display: Editor
+    color: "#FF5C8A"
+    description: Cut assembly, VO timing, overlay placement.
+  - id: publisher
+    display: Publisher
+    color: "#A0A0A0"
+    description: Title/thumb finalize, schedule, post-publish CTR/APV watch.
+  - id: substrate
+    display: Substrate
+    color: "#3A3A3A"
+    description: Postgres adapter, Neo4j wrapper, Gap-Finder. Owned by Eric's Claude.
+
+# The 10-stage pipeline. Each stage maps to a Notion SOP page.
+stages:
+  - id: "01"
+    name: Niche Selection
+    owner_role: strategist
+    gate_owner: operator
+    inputs: [market_signals, rpm_estimate]
+    outputs: [validated_niche]
+    tools: [gemini, perplexity, vidiq]
+    gate_criteria:
+      - RPM estimate ≥ $7
+      - Rising/flat trend (not declining)
+      - < 50 faceless-format competitors
+      - Niche depth ≥ 50-video runway
+    sop: sops/01-niche-selection.md
+
+  - id: "02"
+    name: Topic Loop
+    owner_role: strategist
+    gate_owner: operator
+    inputs: [validated_niche, corpus_winning_patterns]
+    outputs: [ranked_topic_list]
+    tools: [gemini, neo4j_wrapper, vidiq]
+    gate_criteria:
+      - Google Trends pass
+      - Format-match against ≥ 1 winning pattern in corpus
+      - SEO anchor present (flight number, case ID, etc.)
+    sop: sops/02-topic-loop.md
+
+  - id: "03"
+    name: Research + Source Pack
+    owner_role: researcher
+    gate_owner: operator
+    inputs: [locked_topic]
+    outputs: [source_pack, timeline_doc]
+    tools: [gemini, archive_org, ntsb_docket, perplexity]
+    gate_criteria:
+      - Primary sources cited (NTSB/AAIB/TSB/BEA report)
+      - Timeline reconstructed with timestamps
+      - No single-source claims
+    sop: sops/03-research.md
+
+  - id: "04"
+    name: Script
+    owner_role: script_producer
+    gate_owner: operator
+    inputs: [source_pack, timeline_doc]
+    outputs: [locked_script_11_to_18min]
+    tools: [claude_opus, descript]
+    gate_criteria:
+      - Cold-open rhetorical hook
+      - Evidence-first cadence (no verdict before evidence)
+      - Sober tone — punchy packaging, neutral narration
+    sop: sops/04-script.md
+
+  - id: "05"
+    name: Title + Thumb Concepting
+    owner_role: publisher
+    gate_owner: operator
+    inputs: [locked_script]
+    outputs: [3_title_variants, 3_thumb_concepts]
+    tools: [nano_banana, higgsfield_soul, photoshop]
+    gate_criteria:
+      - All-caps hook + SEO anchor pattern
+      - Thumb reads at 200px
+      - A/B variant ready for post-publish swap
+    sop: sops/05-title-thumb.md
+
+  - id: "06"
+    name: B-Roll + Asset Gen
+    owner_role: editor
+    gate_owner: operator
+    inputs: [locked_script, asset_manifest]
+    outputs: [bcoll_pack]
+    tools: [higgsfield, archive_org, ntsb_docket, flight_sim, blender, remotion, storyblocks]
+    gate_criteria:
+      - Archival used where available (no AI-slop on forensic moments)
+      - Character/aircraft consistency across shots
+      - Copyright-clear (no Google Earth Studio commercial)
+    sop: sops/06-broll.md
+
+  - id: "07"
+    name: VO
+    owner_role: editor
+    gate_owner: operator
+    inputs: [locked_script]
+    outputs: [vo_track]
+    tools: [elevenlabs, cartesia]
+    gate_criteria:
+      - Consistent voice across episodes (locked ElevenLabs voice ID)
+      - Pacing matches script blueprint
+    sop: sops/07-vo.md
+
+  - id: "08"
+    name: Assembly
+    owner_role: editor
+    gate_owner: operator
+    inputs: [vo_track, bcoll_pack, overlay_manifest]
+    outputs: [rough_cut_v1]
+    tools: [descript, remotion, premiere]
+    gate_criteria:
+      - Overlay manifest matches transcript timecodes
+      - Underlord pass on filler/dead-air
+      - Studio Sound applied to VO
+    sop: sops/08-assembly.md
+
+  - id: "09"
+    name: Quality Gate + Publish
+    owner_role: publisher
+    gate_owner: operator
+    inputs: [rough_cut_v2, title_thumb_locked]
+    outputs: [published_video]
+    tools: [youtube_studio, vidiq]
+    gate_criteria:
+      - Captions present and clean
+      - End-screen + cards configured
+      - Schedule slot confirmed
+    sop: sops/09-publish.md
+
+  - id: "10"
+    name: Post-Publish Watch + Pattern Log
+    owner_role: strategist
+    gate_owner: operator
+    inputs: [published_video, 72hr_metrics]
+    outputs: [winning_pattern_or_kill]
+    tools: [youtube_studio, neo4j_wrapper]
+    gate_criteria:
+      - CTR ≥ 10% AND APV ≥ 30% → log as Winning Pattern
+      - Below threshold → kill or iterate, log learning
+    sop: sops/10-watch.md
+
+# Tool registry. Each tool is referenced by stages above via `tools: [tool_id]`.
+tools:
+  - id: gemini
+    display: Gemini 2.5 Pro
+    category: llm
+    stages: ["01", "02", "03"]
+    monthly_cost_usd: 20
+    notes: 1M-context for full NTSB/AAIB report ingestion.
+
+  - id: claude_opus
+    display: Claude Opus 4.7
+    category: llm
+    stages: ["04"]
+    monthly_cost_usd: 0
+    notes: Included in Eric's Max plan. Script production.
+
+  - id: perplexity
+    display: Perplexity
+    category: research
+    stages: ["01", "02", "03"]
+    monthly_cost_usd: 20
+    notes: Live web search with citations.
+
+  - id: vidiq
+    display: vidIQ
+    category: analytics
+    stages: ["01", "02", "09", "10"]
+    monthly_cost_usd: 49
+    notes: Niche/topic intel + post-publish watch.
+
+  - id: neo4j_wrapper
+    display: Neo4j HTTP Wrapper
+    category: substrate
+    stages: ["02", "10"]
+    monthly_cost_usd: 0
+    notes: Rust service over Cloudflare tunnel. Read-only for non-substrate bots.
+
+  - id: archive_org
+    display: archive.org / NTSB / AAIB / BEA
+    category: archival
+    stages: ["03", "06"]
+    monthly_cost_usd: 0
+    notes: Public domain archival. Offsets 40-60% of gen cost on forensic lane.
+
+  - id: ntsb_docket
+    display: NTSB Public Docket
+    category: archival
+    stages: ["03", "06"]
+    monthly_cost_usd: 0
+    notes: Animations, CVR transcripts, witness photos. Public domain.
+
+  - id: higgsfield
+    display: Higgsfield (Soul + DoP + SFX)
+    category: gen_video
+    stages: ["05", "06"]
+    monthly_cost_usd: 98
+    notes: 2x Ultimate seats. Soul for character consistency, DoP for cinematic motion.
+
+  - id: higgsfield_soul
+    display: Higgsfield Soul
+    category: gen_image
+    stages: ["05"]
+    monthly_cost_usd: 0
+    notes: Included in Higgsfield Ultimate. Thumb reference work.
+
+  - id: nano_banana
+    display: Nano Banana 2
+    category: gen_image
+    stages: ["05"]
+    monthly_cost_usd: 0
+    notes: Included in Gemini Advanced. Thumb iteration workhorse.
+
+  - id: flight_sim
+    display: MSFS / X-Plane
+    category: capture
+    stages: ["06"]
+    monthly_cost_usd: 15
+    notes: Real-FDR-data flight reconstruction (Green Dot method).
+
+  - id: blender
+    display: Blender
+    category: 3d
+    stages: ["06"]
+    monthly_cost_usd: 0
+    notes: Maps and 3D where flight-sim/Remotion fall short.
+
+  - id: remotion
+    display: Remotion
+    category: programmatic_video
+    stages: ["06", "08"]
+    monthly_cost_usd: 0
+    notes: React-as-video. Flight paths, evidence cards, timeline strips. Reusable across episodes.
+
+  - id: storyblocks
+    display: Storyblocks
+    category: stock
+    stages: ["06"]
+    monthly_cost_usd: 30
+    notes: Gap-fill where archival doesn't reach.
+
+  - id: elevenlabs
+    display: ElevenLabs
+    category: tts
+    stages: ["07"]
+    monthly_cost_usd: 22
+    notes: Primary VO. Locked voice IDs per operator.
+
+  - id: cartesia
+    display: Cartesia
+    category: tts
+    stages: ["07"]
+    monthly_cost_usd: 0
+    notes: Draft-pass VO for timing tests.
+
+  - id: descript
+    display: Descript
+    category: editor
+    stages: ["04", "08"]
+    monthly_cost_usd: 24
+    notes: Transcript-driven editor. Spine of the assembly loop. Underlord agent for cuts.
+
+  - id: premiere
+    display: Premiere + Firefly
+    category: editor
+    stages: ["08"]
+    monthly_cost_usd: 23
+    notes: Final color + audio polish if operator wants the last 10%.
+
+  - id: photoshop
+    display: Photoshop
+    category: image_editor
+    stages: ["05"]
+    monthly_cost_usd: 0
+    notes: Included in Adobe CC. Thumb polish.
+
+  - id: youtube_studio
+    display: YouTube Studio
+    category: publish
+    stages: ["09", "10"]
+    monthly_cost_usd: 0
+    notes: Publish, scheduling, post-publish metrics.
+
+# Data flows between substrate components. Drawn as arrows in HTML/Canvas.
+data_flows:
+  - from: notion
+    to: postgres
+    via: rust_sync_adapter
+    pattern: SELECT FOR UPDATE
+    note: Notion edits webhook → adapter writes → Postgres canonical.
+  - from: postgres
+    to: notion
+    via: rust_sync_adapter
+    pattern: mirror-back
+    note: Postgres-originated changes mirror back to Notion DBs.
+  - from: knowledge_repo
+    to: neo4j
+    via: neo4j_alexandria_ingest
+    pattern: append + embed
+    note: New teardowns / winning patterns ingested + vector embedded.
+  - from: neo4j
+    to: agents
+    via: neo4j_http_wrapper
+    pattern: read-only HTTP
+    note: Strategist queries graph for winning patterns during Stage 02.
+  - from: postgres
+    to: gap_finder
+    via: cron
+    pattern: poll Blocked Reason
+    note: Daemon mode. Skill mode also exposed for on-demand calls.
+  - from: postgres
+    to: dashboard
+    via: snapshot_view
+    pattern: 15min refresh
+    note: Per-operator tracking dashboard, side-by-side render.
+
+# Repos in play.
+repos:
+  - id: rt_yt_substrate
+    url: https://github.com/ecfromthedc/rt-yt-substrate
+    role: substrate + skills + schema + adapter
+  - id: rt_yt_knowledge
+    url: https://github.com/ecfromthedc/rt-yt-knowledge
+    role: corpus — teardowns, prompts, tool evals, winning patterns
+  - id: youtube_growth_playbook
+    url: https://github.com/ecfromthedc/youtube-growth-playbook
+    role: methodology + agent contracts + prompt library
