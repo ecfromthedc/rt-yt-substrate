@@ -30,8 +30,14 @@ def ollama(prompt, num_predict=1400):
     body = json.dumps({"model": MODEL, "prompt": prompt, "stream": False,
                        "options": {"temperature": 0.5, "num_predict": num_predict}}).encode()
     req = urllib.request.Request(OLLAMA, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=240) as resp:
-        return json.loads(resp.read())["response"].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=240) as resp:
+            return json.loads(resp.read())["response"].strip()
+    except Exception as e:
+        sys.stderr.write(
+            f"\n[!] Ollama not reachable ({e}).\n"
+            f"    Fix: run `ollama serve`, then `ollama pull {MODEL}` if needed. Then retry.\n\n")
+        sys.exit(2)
 
 def gather(lane):
     bible = read(os.path.join(SEED, "lanes", lane, "script-bible.md"))
@@ -97,10 +103,19 @@ def main():
     ap.add_argument("--lane", required=True)
     ap.add_argument("--n", type=int, default=12)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--force", action="store_true", help="generate even if the lane has no Script Bible")
     a = ap.parse_args()
     bible, used = gather(a.lane)
+    if not bible and not a.force:
+        lanes = sorted(os.path.basename(p.rstrip("/")) for p in glob.glob(os.path.join(SEED, "lanes", "*", "")))
+        sys.stderr.write(
+            f"\n[!] No Script Bible for lane '{a.lane}' at {SEED}/lanes/{a.lane}/script-bible.md\n"
+            f"    A topic queue without a bible is ungrounded guesswork — refusing to write junk.\n"
+            f"    Available lanes: {', '.join(lanes) or '(none)'}\n"
+            f"    Build a Script Bible first (run /teardown then synthesize), or pass --force to override.\n\n")
+        sys.exit(2)
     if not bible:
-        print(f"WARN: no script bible for lane '{a.lane}' — generating from formulas only.", file=sys.stderr)
+        print(f"WARN: --force set — no bible for '{a.lane}', generating from formulas only.", file=sys.stderr)
     print(f"[topic-loop] {a.lane}: {len(used)} competitor topics parsed, generating {a.n} …", file=sys.stderr)
     topics = generate(a.lane, a.n, bible, used)
     out_dir = a.out or os.path.join(SEED, "lanes", a.lane)
