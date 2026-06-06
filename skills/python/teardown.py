@@ -83,8 +83,14 @@ def ollama(prompt, num_predict=700):
     body = json.dumps({"model": MODEL, "prompt": prompt, "stream": False,
                        "options": {"temperature": 0.2, "num_predict": num_predict}}).encode()
     req = urllib.request.Request(OLLAMA, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=180) as resp:
-        return json.loads(resp.read())["response"].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            return json.loads(resp.read())["response"].strip()
+    except Exception as e:
+        sys.stderr.write(
+            f"\n[!] Ollama not reachable ({e}).\n"
+            f"    Fix: run `ollama serve` in a terminal, then `ollama pull {MODEL}` if the model is missing. Then retry.\n\n")
+        sys.exit(2)
 
 def analyze_titles(top):
     lines = "\n".join(f"- {v['views']:>10,} views | {v['title']}" for v in top)
