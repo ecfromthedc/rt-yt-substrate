@@ -124,8 +124,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--niche", required=True)
     ap.add_argument("--lane", default="")
-    ap.add_argument("--out", default=os.path.expanduser(
-        "~/Documents/Obsidian Vault/Rising Tides OS/Session Logs/2026-06/session-2026-06-05/yt-1mil-plan/rt-yt-knowledge-SEED/niche-validations"))
+    ap.add_argument("--out", default=os.environ.get("RT_YT_OUT_DIR", "./out"))
     a = ap.parse_args()
     rpm = rpm_hint(a.niche)
     print(f"[niche-validate] probing competitive surface for '{a.niche}' …", file=sys.stderr)
