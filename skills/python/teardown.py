@@ -169,8 +169,7 @@ def main():
     ap.add_argument("--lane", required=True)
     ap.add_argument("--top", type=int, default=10)
     ap.add_argument("--hooks", type=int, default=3)
-    ap.add_argument("--out", default=os.path.expanduser(
-        "~/Documents/Obsidian Vault/Rising Tides OS/Session Logs/2026-06/session-2026-06-05/yt-1mil-plan/rt-yt-knowledge-SEED/lanes"))
+    ap.add_argument("--out", default=os.environ.get("RT_YT_OUT_DIR", "./out"))
     a = ap.parse_args()
     print(f"[teardown] fetching {a.channel} …", file=sys.stderr)
     vids = fetch_videos(a.channel)

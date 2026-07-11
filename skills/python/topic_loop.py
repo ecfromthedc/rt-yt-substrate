@@ -102,7 +102,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lane", required=True)
     ap.add_argument("--n", type=int, default=12)
-    ap.add_argument("--out", default=None)
+    ap.add_argument("--out", default=os.environ.get("RT_YT_OUT_DIR"))
     ap.add_argument("--force", action="store_true", help="generate even if the lane has no Script Bible")
     a = ap.parse_args()
     bible, used = gather(a.lane)
